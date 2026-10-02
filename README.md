@@ -131,16 +131,7 @@ Temporal writes `temporal.db` into the resolved directory. Keep the AppHost loca
 
 For these modes, choose either `.WithDataVolume()` or `DevServerOptions.DatabaseFilename`; configuring both is rejected. Existing explicit filenames and container mounts continue to work.
 
-The SDK-managed server (`AddTemporalLocalDevServer`) uses an in-memory database by default and still needs an explicit filename to persist state:
-
-```csharp
-Directory.CreateDirectory("../.temporal");
-
-var temporal = builder.AddTemporalLocalDevServer("temporal", options =>
-{
-    options.DevServerOptions.DatabaseFilename = "../.temporal/temporal.db";
-});
-```
+The SDK-managed server (`AddTemporalLocalDevServer`) does not support `.WithDataVolume()`. It uses an in-memory database by default; persistence requires an explicit `DevServerOptions.DatabaseFilename` and an existing parent directory.
 
 `DevServerOptions` is marked unstable by the Temporal .NET SDK and may change in future SDK versions.
 
