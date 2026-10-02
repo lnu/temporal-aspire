@@ -111,11 +111,27 @@ builder.AddProject<Projects.Worker>("worker")
 
 Use secret parameters for API keys and codec credentials. A UI address adds a **Temporal Dashboard** link in Aspire. `WithReference` supplies the Temporal connection environment variables to consuming projects, which can load them with `ClientEnvConfig.LoadClientConnectOptions()`.
 
-`EnableHealthCheck` verifies the endpoint, TLS, and credentials with `GetSystemInfo`; it does not verify worker or task-queue health. See the [samples README](samples/README.md) for configuration and startup instructions.
+`EnableHealthCheck` verifies the endpoint, TLS, and credentials with `GetSystemInfo`; it does not verify worker or task-queue health.
 
 ## Persist local development state
 
-The local development server uses an in-memory database by default. To persist state between runs, set Temporal's dev-server database filename:
+For CLI and container servers, use `.WithDataVolume(name)`:
+
+```csharp
+var temporal = builder.AddTemporalCliServer("temporal")
+    .WithDataVolume("temporal-data");
+```
+
+Use `AddTemporalDevContainer` instead for a container server. Both follow [Aspire's portable volume path conventions](https://aspire.dev/fundamentals/persist-data-volumes/#use-a-portable-volume-path-environment-variable), so you do not need to configure a host database path:
+
+- **CLI:** Aspire creates a resource-scoped directory in its local store.
+- **Container:** Aspire mounts a named volume at `/home/temporal`.
+
+Temporal writes `temporal.db` into the resolved directory. Keep the AppHost location, resource name, and storage name stable to reuse CLI data. The CLI store is normally under the AppHost's `obj/.aspire` directory; removing `obj` removes that data. CLI directories and container volumes are separate storage, so switching modes does not migrate an existing database.
+
+For these modes, choose either `.WithDataVolume()` or `DevServerOptions.DatabaseFilename`; configuring both is rejected. Existing explicit filenames and container mounts continue to work.
+
+The SDK-managed server (`AddTemporalLocalDevServer`) uses an in-memory database by default and still needs an explicit filename to persist state:
 
 ```csharp
 Directory.CreateDirectory("../.temporal");
@@ -126,52 +142,13 @@ var temporal = builder.AddTemporalLocalDevServer("temporal", options =>
 });
 ```
 
-For CLI and container servers, use `.WithDataVolume(name)`:
-
-```csharp
-var temporal = builder.AddTemporalDevContainer("temporal")
-    .WithDataVolume("temporal-data")
-    .WithCliTerminal();
-```
-
-The same persistence extension works with `AddTemporalCliServer`. Aspire resolves a directory scoped to the CLI resource and storage name beneath its local store; a container uses `/home/temporal` in the named volume. Temporal writes `temporal.db` into that directory. Keep the AppHost location, resource name, and storage name stable to reuse the data. The CLI store is normally under the AppHost's `obj/.aspire` directory, so removing `obj` also removes that data.
-
-Choose either `.WithDataVolume()` or an explicit `DevServerOptions.DatabaseFilename`; configuring both is rejected. Existing explicit filenames and container mounts continue to work. CLI directories and container volumes are separate storage: switching modes does not migrate a database automatically. SDK-managed local persistence continues to use the filename shown above.
-
 `DevServerOptions` is marked unstable by the Temporal .NET SDK and may change in future SDK versions.
 
 When `UI = false`, the resource does not publish a dashboard URL or `TEMPORAL_UI_ADDRESS`. Development resources expose `/metrics`; container host ports are allocated unless non-default ports are configured explicitly.
 
 ## Run the samples
 
-Both samples use the same worker, client, and workflow projects. Restore the repository's pinned Aspire CLI first:
-
-```bash
-dotnet tool restore
-```
-
-Both AppHosts enable the CLI bundle and use `AspireCliInvocationMode=Dnx`, so SDK-driven launches also honor the local CLI pin.
-
-Local development server:
-
-```bash
-cd samples/SampleAppHost
-dotnet tool run aspire -- start
-```
-
-Temporal Cloud:
-
-```bash
-cd samples/SampleCloudAppHost
-
-cp .secrets.env.example .secrets.env
-# Add your Temporal Cloud values to .secrets.env.
-
-source .secrets.env
-dotnet tool run aspire -- start
-```
-
-See the [samples README](samples/README.md) for details.
+See the [samples README](https://github.com/temporal-community/temporal-aspire/blob/main/samples/README.md) for local and Temporal Cloud configuration and startup instructions.
 
 ## Resources
 
