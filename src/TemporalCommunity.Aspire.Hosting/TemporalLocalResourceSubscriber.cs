@@ -2,7 +2,7 @@ using Aspire.Hosting.Eventing;
 using Aspire.Hosting.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Temporalio.Testing;
+using Microsoft.Extensions.Hosting;
 
 namespace TemporalCommunity.Aspire.Hosting;
 
@@ -11,8 +11,6 @@ namespace TemporalCommunity.Aspire.Hosting;
 /// </summary>
 public class TemporalLocalResourceSubscriber : IDistributedApplicationEventingSubscriber
 {
-    private readonly Dictionary<string, WorkflowEnvironment> environments = [];
-
     /// <summary>
     /// Subscribes to resource events for initializing and managing local Temporal servers.
     /// </summary>
@@ -38,7 +36,7 @@ public class TemporalLocalResourceSubscriber : IDistributedApplicationEventingSu
     /// <summary>
     /// Handles initialization of local Temporal resources.
     /// </summary>
-    private async Task OnInitializeAsync(InitializeResourceEvent @event, CancellationToken cancellationToken = default)
+    private static async Task OnInitializeAsync(InitializeResourceEvent @event, CancellationToken cancellationToken = default)
     {
         if (@event.Resource is not TemporalLocalResource resource)
         {
@@ -46,10 +44,12 @@ public class TemporalLocalResourceSubscriber : IDistributedApplicationEventingSu
         }
 
         var resourceLoggerService = @event.Services.GetRequiredService<ResourceLoggerService>();
+        var lifecycle = @event.Services.GetRequiredService<TemporalLocalServerLifecycle>();
+        lifecycle.RegisterApplicationStopping(@event.Services.GetRequiredService<IHostApplicationLifetime>());
 
         // Subscribe to ResourceStoppedEvent for this specific resource to handle cleanup
         @event.Eventing.Subscribe<ResourceStoppedEvent>(resource,
-            (stopEvent, _) => OnResourceStoppedAsync(stopEvent, resourceLoggerService, resource));
+            (_, _) => lifecycle.StopResourceAsync(resource));
 
         await StartTemporalTestServerAsync(resource, @event.Eventing,
             @event.Notifications, resourceLoggerService, @event.Services, cancellationToken);
@@ -58,7 +58,7 @@ public class TemporalLocalResourceSubscriber : IDistributedApplicationEventingSu
     /// <summary>
     /// Starts the local Temporal test server and publishes connection events.
     /// </summary>
-    private async Task StartTemporalTestServerAsync(TemporalLocalResource resource,
+    private static async Task StartTemporalTestServerAsync(TemporalLocalResource resource,
         IDistributedApplicationEventing eventing,
         ResourceNotificationService resourceNotificationService,
         ResourceLoggerService resourceLoggerService,
@@ -79,13 +79,8 @@ public class TemporalLocalResourceSubscriber : IDistributedApplicationEventingSu
             resourceLogger.LogInformation("Starting Temporal test server for resource '{ResourceName}'...",
                 resource.Name);
 
-            var env = await WorkflowEnvironment.StartLocalAsync(TemporalArgsBuilder.BuildLocalOptions(resource.Options));
-
-            // Store the environment for later shutdown (before publishing events)
-            environments[resource.Name] = env;
-
-            // Set the environment on the resource so it can be accessed
-            resource.WorkflowEnvironment = env;
+            var env = await serviceProvider.GetRequiredService<TemporalLocalServerLifecycle>()
+                .StartResourceAsync(resource, resourceLogger, cancellationToken);
 
             var targetHost = env.Client.Connection.Options.TargetHost ?? "unknown";
             var namespaces = string.Join(", ", resource.Options.AdditionalNamespaces);
@@ -121,6 +116,7 @@ public class TemporalLocalResourceSubscriber : IDistributedApplicationEventingSu
         {
             resourceLogger.LogError(ex, "Failed to start Temporal test server for resource '{ResourceName}'",
                 resource.Name);
+            await serviceProvider.GetRequiredService<TemporalLocalServerLifecycle>().StopResourceAsync(resource);
 
             // Publish failed state
             await resourceNotificationService.PublishUpdateAsync(resource, state => state with
@@ -129,40 +125,6 @@ public class TemporalLocalResourceSubscriber : IDistributedApplicationEventingSu
             });
 
             throw;
-        }
-    }
-
-    /// <summary>
-    /// Handles cleanup when a local Temporal resource is stopped.
-    /// </summary>
-    private async Task OnResourceStoppedAsync(ResourceStoppedEvent @event,
-        ResourceLoggerService resourceLoggerService, TemporalLocalResource resource)
-    {
-        var resourceName = @event.Resource.Name;
-        var resourceLogger = resourceLoggerService.GetLogger(resource);
-
-        // Get environment from resource property first, fallback to tracking dictionary
-        var env = resource.WorkflowEnvironment ?? environments.GetValueOrDefault(resourceName);
-
-        if (env != null)
-        {
-            try
-            {
-                resourceLogger.LogInformation("Shutting down Temporal test server '{ResourceName}'...", resourceName);
-                await env.ShutdownAsync();
-                resource.WorkflowEnvironment = null;
-                resourceLogger.LogInformation("Temporal test server '{ResourceName}' shut down successfully.",
-                    resourceName);
-            }
-            catch (Exception ex)
-            {
-                resourceLogger.LogError(ex, "Error shutting down Temporal test server '{ResourceName}'", resourceName);
-                throw;
-            }
-            finally
-            {
-                environments.Remove(resourceName);
-            }
         }
     }
 }

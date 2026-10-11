@@ -2,6 +2,18 @@ using TemporalCommunity.Aspire.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+if (builder.Configuration["TemporalMode"] == "local")
+{
+    builder.AddTemporalLocalDevServer("temporal", options =>
+    {
+        options.TargetHost = $"127.0.0.1:{builder.Configuration["TemporalPort"] ?? "7233"}";
+        options.MetricsPort = int.Parse(builder.Configuration["TemporalMetricsPort"] ?? "9233", System.Globalization.CultureInfo.InvariantCulture);
+        options.UI = false;
+    });
+    builder.Build().Run();
+    return;
+}
+
 var temporal = builder.AddTemporalDevContainer("temporal").WithCliTerminal();
 
 var dependent = builder.AddExecutable(

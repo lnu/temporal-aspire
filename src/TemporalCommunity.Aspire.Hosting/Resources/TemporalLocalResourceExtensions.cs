@@ -2,7 +2,7 @@ using Aspire.Hosting.Eventing;
 using Aspire.Hosting.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Temporalio.Testing;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace TemporalCommunity.Aspire.Hosting;
 
@@ -24,6 +24,8 @@ public static class TemporalLocalResourceExtensions
         Action<TemporalResourceOptions>? configure = null)
     {
         builder.Services.TryAddEventingSubscriber<TemporalLocalResourceSubscriber>();
+        builder.Services.TryAddSingleton<TemporalLocalServerLifecycle>();
+        builder.Services.AddHostedService(services => services.GetRequiredService<TemporalLocalServerLifecycle>());
 
         var resource = new TemporalLocalResource(name);
 
@@ -88,8 +90,8 @@ public static class TemporalLocalResourceExtensions
 
                 try
                 {
-                    // Publish ResourceStoppedEvent to trigger subscriber cleanup and keep _environments dictionary in sync
-                    // The subscriber's OnResourceStoppedAsync performs the actual ShutdownAsync exactly once.
+                    // Resource and host stop share the same serialized, awaited SDK cleanup.
+                    await context.Services.GetRequiredService<TemporalLocalServerLifecycle>().StopResourceAsync(resource);
                     var resourceEvent = new ResourceEvent(resource, resource.Name, new CustomResourceSnapshot
                     {
                         ResourceType = "temporal-local",
@@ -157,8 +159,8 @@ public static class TemporalLocalResourceExtensions
                 try
                 {
                     resourceLogger.LogInformation("Starting Temporal test server for resource '{ResourceName}'...", resource.Name);
-                    var env = await WorkflowEnvironment.StartLocalAsync(TemporalArgsBuilder.BuildLocalOptions(resource.Options));
-                    resource.WorkflowEnvironment = env;
+                    var env = await context.Services.GetRequiredService<TemporalLocalServerLifecycle>()
+                        .StartResourceAsync(resource, resourceLogger, context.CancellationToken);
 
                     var targetHost = env.Client.Connection.Options.TargetHost ?? "unknown";
 
@@ -187,6 +189,7 @@ public static class TemporalLocalResourceExtensions
                 catch (Exception ex)
                 {
                     resourceLogger.LogError(ex, "Failed to start Temporal test server for resource '{ResourceName}'", resource.Name);
+                    await context.Services.GetRequiredService<TemporalLocalServerLifecycle>().StopResourceAsync(resource);
                     await notifications.PublishUpdateAsync(resource, s => s with
                     {
                         State = new ResourceStateSnapshot(KnownResourceStates.FailedToStart, KnownResourceStateStyles.Error)
