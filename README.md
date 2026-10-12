@@ -5,13 +5,15 @@
 ## Features
 
 - **Local development server** using `Temporalio.Testing.WorkflowEnvironment`
-- **Container-based development server** using the `temporalio/temporal` Docker image
+- **Container-based development server** using the `temporalio/temporal` image
 - **CLI-based development server** using the Temporal CLI
 - **Service discovery** through Aspire resource references
 - **Environment variable injection** for dependent worker/client projects
 - **Health checks** integrated with Aspire resource health
 
 ## Install
+
+Requires .NET Aspire 13.6.0 or later.
 
 ```bash
 dotnet add package TemporalCommunity.Aspire.Hosting
@@ -38,7 +40,7 @@ builder.Build().Run();
 `WithReference` injects:
 
 - `TEMPORAL_ADDRESS`
-- `TEMPORAL_UI_ADDRESS`
+- `TEMPORAL_UI_ADDRESS` (when a UI address is configured)
 - `TEMPORAL_NAMESPACE`
 
 ## Other resource modes
@@ -51,9 +53,9 @@ var temporal = builder.AddTemporalDevContainer();
 var temporal = builder.AddTemporalCliServer();
 ```
 
-`AddTemporalDevContainer` requires Docker. `AddTemporalCliServer` requires the Temporal CLI on `PATH`.
+`AddTemporalDevContainer` requires an Aspire-supported container runtime, such as Docker or Podman. `AddTemporalCliServer` requires the Temporal CLI on `PATH`.
 
-`AddTemporalDevContainer` requires Aspire 13.6.0 or later. By default, Aspire allocates free host ports for the container while Temporal continues to listen inside the container on 7233 (gRPC), 8233 (UI), and 9233 (metrics). `WithReference` resolves the allocated ports automatically, so multiple AppHosts can run side by side without sharing a Temporal server accidentally.
+By default, Aspire allocates free host ports for the container while Temporal continues to listen inside the container on 7233 (gRPC), 8233 (UI), and 9233 (metrics). `WithReference` resolves the allocated ports automatically, so multiple AppHosts can run side by side without sharing a Temporal server accidentally.
 
 To request fixed host ports, configure non-default values explicitly:
 
@@ -75,9 +77,9 @@ var temporal = builder.AddTemporalDevContainer("temporal")
     .WithCliTerminal();
 ```
 
-The same extension works with `AddTemporalCliServer`, `AddTemporalLocalDevServer`, and `AddTemporalCloud`. It opens an interactive shell with `TEMPORAL_ADDRESS` and `TEMPORAL_NAMESPACE` configured for the running server. Run commands such as `temporal workflow list` directly in that shell. The command is enabled only while the server is running and healthy.
+The same extension works with `AddTemporalCliServer`, `AddTemporalLocalDevServer`, and `AddTemporalCloud`. It opens an interactive shell with `TEMPORAL_ADDRESS` and `TEMPORAL_NAMESPACE` configured for the running server. Run commands such as `temporal workflow list` directly in that shell. The command is enabled only while the resource is running and healthy. Cloud resources must enable the health check (`EnableHealthCheck = true`) for the terminal command to become available.
 
-Container terminals use the CLI bundled in the image through Aspire's selected Docker or Podman runtime; no host Temporal CLI installation is needed. CLI, SDK-managed, and Cloud terminals use a host shell and require the [Temporal CLI](https://docs.temporal.io/cli/setup-cli) on `PATH`. Cloud terminals require the resource's API key and use its address and namespace with TLS enabled. The action is omitted when publishing or deploying the AppHost.
+Container terminals use the CLI bundled in the image through Aspire's selected Docker or Podman runtime; no host Temporal CLI installation is needed. CLI, SDK-managed, and Cloud terminals use a host shell and require the [Temporal CLI](https://docs.temporal.io/cli/setup-cli) on `PATH`. Cloud terminals use the resource's API key, address, and namespace with TLS enabled. Anyone who can open the Dashboard terminal can run authenticated CLI commands against that namespace, so enable it only for trusted Dashboard users. The action is omitted when publishing or deploying the AppHost.
 
 The AppHost must enable the Aspire CLI bundle, which supplies Dashboard terminal support:
 

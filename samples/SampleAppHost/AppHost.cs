@@ -2,13 +2,9 @@ using TemporalCommunity.Aspire.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var temporalDataDirectory = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "..", ".temporal"));
-Directory.CreateDirectory(temporalDataDirectory);
-
-var temporal = builder.AddTemporalLocalDevServer("temporal", options =>
-{
-    options.DevServerOptions.DatabaseFilename = Path.Combine(temporalDataDirectory, "temporal.db");
-}).WithCliTerminal();
+var temporal = builder.AddTemporalCliServer("temporal")
+    .WithDataVolume("temporal-data")
+    .WithCliTerminal();
 
 builder.AddProject<Projects.SampleWorker>("sample-worker")
     .WaitFor(temporal)

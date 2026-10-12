@@ -15,10 +15,10 @@ dotnet tool restore
 From `samples/`:
 
 ```bash
-aspire start --apphost SampleAppHost/SampleAppHost.csproj
+dotnet tool run aspire -- start --apphost SampleAppHost/SampleAppHost.csproj
 ```
 
-This sample starts a local Temporal server and stores its database in `samples/.temporal/temporal.db`. The Dashboard's **Open Temporal CLI** action opens a shell for that server; it requires the Temporal CLI on `PATH`.
+This sample starts a Temporal CLI server and persists its database with `.WithDataVolume("temporal-data")` in an Aspire-managed host directory. It requires the Temporal CLI on `PATH`; the Dashboard's **Open Temporal CLI** action uses that same CLI to open a shell for the server. Removing the AppHost's `obj` directory also removes the CLI server's persisted data.
 
 ## Temporal Cloud
 
@@ -33,7 +33,7 @@ Edit `.secrets.env` with your Cloud address, namespace, API key, and UI URL. The
 
 ```bash
 source .secrets.env
-aspire start
+dotnet tool run aspire -- start
 ```
 
 The worker and client start after the Cloud connection health check succeeds. **Open Temporal CLI** opens a local shell configured with the Cloud address, namespace, API key, and TLS; it requires the Temporal CLI on `PATH`.
