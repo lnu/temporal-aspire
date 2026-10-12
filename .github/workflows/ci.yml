@@ -65,6 +65,15 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           temporal --version
 
+      - name: Install shutdown-test prerequisites
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends lsof
+          command -v lsof
+
       - name: Run Temporal development-server integration tests
         if: matrix.os == 'ubuntu-latest'
         run: just integration-test
