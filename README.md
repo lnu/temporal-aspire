@@ -13,7 +13,7 @@
 
 ## Install
 
-Requires .NET Aspire 13.6.0 or later.
+Requires .NET Aspire 13.6.1 or later.
 
 ```bash
 dotnet add package TemporalCommunity.Aspire.Hosting

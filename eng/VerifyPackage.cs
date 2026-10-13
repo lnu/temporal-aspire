@@ -8,7 +8,7 @@ using System.Xml.Linq;
 const string ExpectedPackageId = "TemporalCommunity.Aspire.Hosting";
 const string ExpectedRepositoryUrl = "https://github.com/temporal-community/temporal-aspire";
 const string ExpectedSourcePrefix = "https://raw.githubusercontent.com/temporal-community/temporal-aspire/";
-const string ExpectedAspireVersion = "13.6.0";
+const string ExpectedAspireVersion = "13.6.1";
 const string ExpectedHostingVersion = "10.0.12";
 var sourceLinkKind = new Guid("CC110556-A091-4D38-9FEC-25AB9A351A6A");
 var frameworks = new[] { "net10.0", "net9.0", "net8.0" };
