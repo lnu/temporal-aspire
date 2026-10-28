@@ -117,12 +117,14 @@ Use secret parameters for API keys and codec credentials. A UI address adds a **
 
 ## Persist local development state
 
-For CLI and container servers, use `.WithDataVolume(name)`:
+For CLI and container servers, use `.WithDataVolume()` to let Aspire generate a storage name, or pass a name to keep control of the storage identity:
 
 ```csharp
 var temporal = builder.AddTemporalCliServer("temporal")
-    .WithDataVolume("temporal-data");
+    .WithDataVolume();
 ```
+
+The same extension works with `AddTemporalDevContainer`; pass a name such as `.WithDataVolume("temporal-data")` when you need an explicit container volume name.
 
 Use `AddTemporalDevContainer` instead for a container server. Both follow [Aspire's portable volume path conventions](https://aspire.dev/fundamentals/persist-data-volumes/#use-a-portable-volume-path-environment-variable), so you do not need to configure a host database path:
 

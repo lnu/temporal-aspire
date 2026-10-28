@@ -38,6 +38,20 @@ public sealed class TemporalDataVolumeExtensionsTests : IDisposable
     }
 
     [Fact]
+    public async Task WithDataVolume_CliGeneratesStorageNameWhenOmitted()
+    {
+        var builder = DistributedApplication.CreateBuilder([]);
+        var temporal = builder.AddTemporalCliServer("temporal", null, () => true).WithDataVolume();
+        using var services = CreateServices();
+
+        var config = await ResolveAsync(temporal.Resource, services);
+        var directory = config.EnvironmentVariables.Single(pair => pair.Key == "TEMPORAL_DATA_DIR").Value;
+
+        Assert.StartsWith(Path.Combine(storePath, "volumes") + Path.DirectorySeparatorChar, directory, StringComparison.Ordinal);
+        AssertDatabaseFilename(config, Path.Combine(directory, "temporal.db"));
+    }
+
+    [Fact]
     public async Task WithDataVolume_ContainerUsesNamedVolumeAndUnixDatabasePath()
     {
         var builder = DistributedApplication.CreateBuilder([]);
@@ -53,6 +67,18 @@ public sealed class TemporalDataVolumeExtensionsTests : IDisposable
         Assert.Equal("/home/temporal", mount.Target);
         Assert.Equal(ContainerMountType.Volume, mount.Type);
         Assert.False(mount.IsReadOnly);
+    }
+
+    [Fact]
+    public void WithDataVolume_ContainerGeneratesStorageNameWhenOmitted()
+    {
+        var temporal = DistributedApplication.CreateBuilder([]).AddTemporalDevContainer().WithDataVolume();
+
+        var mount = Assert.Single(temporal.Resource.Annotations.OfType<ContainerMountAnnotation>());
+
+        Assert.False(string.IsNullOrWhiteSpace(mount.Source));
+        Assert.Equal("/home/temporal", mount.Target);
+        Assert.Equal(ContainerMountType.Volume, mount.Type);
     }
 
     [Theory]
@@ -119,7 +145,6 @@ public sealed class TemporalDataVolumeExtensionsTests : IDisposable
     }
 
     [Theory]
-    [InlineData(null)]
     [InlineData("")]
     [InlineData(" ")]
     public void WithDataVolume_RejectsInvalidStorageName(string? name)

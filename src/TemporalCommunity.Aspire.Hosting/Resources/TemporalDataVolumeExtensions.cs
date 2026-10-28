@@ -10,10 +10,10 @@ public static class TemporalDataVolumeExtensions
     /// <param name="name">The storage name, scoped to this resource by Aspire.</param>
     /// <returns>The resource builder.</returns>
     public static IResourceBuilder<TemporalCliServerResource> WithDataVolume(
-        this IResourceBuilder<TemporalCliServerResource> builder, string name)
+        this IResourceBuilder<TemporalCliServerResource> builder, string? name = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        return WithDataVolumeCore(builder, name, builder.Resource.Options);
+        return WithDataVolumeCore(builder, name ?? VolumeNameGenerator.Generate(builder, "cli"), builder.Resource.Options);
     }
 
     /// <summary>Persists the container server database in a named volume.</summary>
@@ -21,10 +21,10 @@ public static class TemporalDataVolumeExtensions
     /// <param name="name">The volume name.</param>
     /// <returns>The resource builder.</returns>
     public static IResourceBuilder<TemporalContainerResource> WithDataVolume(
-        this IResourceBuilder<TemporalContainerResource> builder, string name)
+        this IResourceBuilder<TemporalContainerResource> builder, string? name = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        return WithDataVolumeCore(builder, name, builder.Resource.Options);
+        return WithDataVolumeCore(builder, name ?? VolumeNameGenerator.Generate(builder, "data"), builder.Resource.Options);
     }
 
     internal static string? GetDatabaseFilename(
